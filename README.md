@@ -1,6 +1,8 @@
- example command line execution: ./EDUT.pl -i a_fasta_file.txt -b -d none -s
+# EDUT Basic Usage
 
-1. Make the EDUT.pl file executable with 'chmod +x EDUT.pl'.
+ example command line execution: `./EDUT.pl -i a_fasta_file.txt -b -d none -s`
+
+1. Make the EDUT.pl file executable with `chmod +x EDUT.pl`.
 
 2. Create an aligned fasta file. The file should be formatted so that each sequence name and each sequence is a single line of text with no line breaks within a sequence. Line breaks follow each sequence name and each nucleotide sequence, including the last sequence. Use UNIX line breaks. All sequences in the data set must be the same length.
 
