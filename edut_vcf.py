@@ -83,7 +83,9 @@ def read_vcf_sites(path, max_missing, exclude_near_indel, allow_unphased):
     """
     samples = []
     indel_positions_by_chrom = defaultdict(list)
-    raw_records = []  # keep everything so we can filter by proximity to indels after one pass
+    raw_records = (
+        []
+    )  # keep everything so we can filter by proximity to indels after one pass
 
     with open_maybe_gzip(path) as fh:
         for line in fh:
@@ -97,11 +99,19 @@ def read_vcf_sites(path, max_missing, exclude_near_indel, allow_unphased):
                 samples = fields[9:]
                 continue
             fields = line.split("\t")
-            chrom, pos, _id, ref, alt_field = fields[0], int(fields[1]), fields[2], fields[3], fields[4]
+            chrom, pos, _id, ref, alt_field = (
+                fields[0],
+                int(fields[1]),
+                fields[2],
+                fields[3],
+                fields[4],
+            )
             fmt = fields[8].split(":")
             gt_index = fmt.index("GT") if "GT" in fmt else None
             alts = alt_field.split(",")
-            is_indel = len(ref) != 1 or any(len(a) != 1 for a in alts if a not in (".", "*"))
+            is_indel = len(ref) != 1 or any(
+                len(a) != 1 for a in alts if a not in (".", "*")
+            )
             if is_indel:
                 indel_positions_by_chrom[chrom].append(pos)
                 continue
@@ -115,7 +125,8 @@ def read_vcf_sites(path, max_missing, exclude_near_indel, allow_unphased):
     for chrom, pos, ref, alt, sample_fields, gt_index in raw_records:
         if exclude_near_indel > 0:
             near = any(
-                abs(pos - ip) <= exclude_near_indel for ip in indel_positions_by_chrom.get(chrom, [])
+                abs(pos - ip) <= exclude_near_indel
+                for ip in indel_positions_by_chrom.get(chrom, [])
             )
             if near:
                 continue
@@ -129,7 +140,11 @@ def read_vcf_sites(path, max_missing, exclude_near_indel, allow_unphased):
             # phase is only meaningful for heterozygous calls; an unphased
             # het can't be assigned to a haplotype without guessing
             if a2 is not None and a1 != a2 and not phased and not allow_unphased:
-                sample_name = samples[sample_idx] if sample_idx < len(samples) else f"sample{sample_idx}"
+                sample_name = (
+                    samples[sample_idx]
+                    if sample_idx < len(samples)
+                    else f"sample{sample_idx}"
+                )
                 print(
                     f"# WARNING: unphased heterozygous genotype at {chrom}:{pos} in sample "
                     f"'{sample_name}' treated as missing; this may result in unidentified "
@@ -212,7 +227,9 @@ def collapse_to_haploid_if_possible(sites, samples):
                 collapsed_alleles.append(a1)
             else:
                 collapsed_alleles.append(a1)  # a1 == a2, homozygous
-        collapsed_sites.append(Site(site.chrom, site.pos, site.ref, site.alt, collapsed_alleles))
+        collapsed_sites.append(
+            Site(site.chrom, site.pos, site.ref, site.alt, collapsed_alleles)
+        )
     return collapsed_sites, list(samples), True
 
 
@@ -309,11 +326,15 @@ def analyze_window(sites, labels, max_span, correction_factor_override=None):
     total_possible_triplets = math.comb(n, 3)
     proportion = correction_factor_override
     if proportion is None:
-        denom = n_triplets_considered if n_triplets_considered else total_possible_triplets
+        denom = (
+            n_triplets_considered if n_triplets_considered else total_possible_triplets
+        )
         proportion = a_count / denom if denom else 0.0
 
     summary = summarize(pattern_a_hits, sites)
-    max_triplets_per_site = math.comb(n - 1, 2)  # pairs of other sites a given site can be in
+    max_triplets_per_site = math.comb(
+        n - 1, 2
+    )  # pairs of other sites a given site can be in
     corrections = middle_correction(n)
 
     rows = []
@@ -326,7 +347,9 @@ def analyze_window(sites, labels, max_span, correction_factor_override=None):
                 {
                     "chrom": site.chrom,
                     "pos": site.pos,
-                    "sample": labels[hap_idx] if hap_idx < len(labels) else f"hap{hap_idx}",
+                    "sample": (
+                        labels[hap_idx] if hap_idx < len(labels) else f"hap{hap_idx}"
+                    ),
                     "raw_score": raw_score,
                     "corrected_score": corrected,
                 }
@@ -366,22 +389,62 @@ def warn_noncontiguous_gaps(window_idx, sites, max_gap):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("vcf", help="Input VCF file, optionally gzipped (- for stdin)")
-    parser.add_argument("--window", type=int, default=100, help="Number of informative SNP sites per window (default: 100)")
-    parser.add_argument("--step", type=int, default=None, help="Step between windows in sites (default: same as --window, i.e. non-overlapping)")
-    parser.add_argument("--max-missing", type=float, default=0.2, help="Exclude a site if more than this fraction of haplotypes are missing (default: 0.2)")
-    parser.add_argument("--max-span", type=int, default=None, help="Exclude a triplet if the outer two sites are more than this many bp apart (guards against spurious flags from sparse, distant SNPs)")
-    parser.add_argument("--max-gap", type=int, default=10000, help="Warn if two consecutive SNPs within a window are more than this many bp apart, i.e. the window has become non-contiguous (default: 10000; use 0 to disable)")
-    parser.add_argument("--exclude-near-indel", type=int, default=0, help="Exclude SNPs within this many bp of an indel record (default: 0, disabled)")
-    parser.add_argument("--allow-unphased", action="store_true", help="Use unphased heterozygous genotypes as-is (arbitrary allele order) instead of treating them as missing. Not needed for fully-homozygous VCFs, which are always collapsed to haploid regardless of phasing.")
-    parser.add_argument("-o", "--output", default="-", help="Output file (default: stdout)")
+    parser.add_argument(
+        "--window",
+        type=int,
+        default=100,
+        help="Number of informative SNP sites per window (default: 100)",
+    )
+    parser.add_argument(
+        "--step",
+        type=int,
+        default=None,
+        help="Step between windows in sites (default: same as --window, i.e. non-overlapping)",
+    )
+    parser.add_argument(
+        "--max-missing",
+        type=float,
+        default=0.2,
+        help="Exclude a site if more than this fraction of haplotypes are missing (default: 0.2)",
+    )
+    parser.add_argument(
+        "--max-span",
+        type=int,
+        default=None,
+        help="Exclude a triplet if the outer two sites are more than this many bp apart (guards against spurious flags from sparse, distant SNPs)",
+    )
+    parser.add_argument(
+        "--max-gap",
+        type=int,
+        default=10000,
+        help="Warn if two consecutive SNPs within a window are more than this many bp apart, i.e. the window has become non-contiguous (default: 10000; use 0 to disable)",
+    )
+    parser.add_argument(
+        "--exclude-near-indel",
+        type=int,
+        default=0,
+        help="Exclude SNPs within this many bp of an indel record (default: 0, disabled)",
+    )
+    parser.add_argument(
+        "--allow-unphased",
+        action="store_true",
+        help="Use unphased heterozygous genotypes as-is (arbitrary allele order) instead of treating them as missing. Not needed for fully-homozygous VCFs, which are always collapsed to haploid regardless of phasing.",
+    )
+    parser.add_argument(
+        "-o", "--output", default="-", help="Output file (default: stdout)"
+    )
     args = parser.parse_args()
 
     if args.step is None:
         args.step = args.window
 
-    sites_gen = read_vcf_sites(args.vcf, args.max_missing, args.exclude_near_indel, args.allow_unphased)
+    sites_gen = read_vcf_sites(
+        args.vcf, args.max_missing, args.exclude_near_indel, args.allow_unphased
+    )
     sites = list(sites_gen)
     samples = []
     with open_maybe_gzip(args.vcf) as fh:
@@ -395,14 +458,18 @@ def main():
         sys.exit(1)
 
     out = sys.stdout if args.output == "-" else open(args.output, "w")
-    out.write("#window\tchrom\tstart_pos\tend_pos\tn_informative_sites\tn_pattern_a\tproportion_pattern_a\tphasing\n")
+    out.write(
+        "#window\tchrom\tstart_pos\tend_pos\tn_informative_sites\tn_pattern_a\tproportion_pattern_a\tphasing\n"
+    )
 
     window_idx = 0
     for window_sites in make_windows(sites, args.window, args.step):
         window_idx += 1
         warn_noncontiguous_gaps(window_idx, window_sites, args.max_gap)
 
-        collapsed_sites, labels, collapsed = collapse_to_haploid_if_possible(window_sites, samples)
+        collapsed_sites, labels, collapsed = collapse_to_haploid_if_possible(
+            window_sites, samples
+        )
         phasing_note = "collapsed-homozygous" if collapsed else "diploid-haplotypes"
 
         result = analyze_window(collapsed_sites, labels, args.max_span)
@@ -419,7 +486,9 @@ def main():
         if result["rows"]:
             out.write("#\tpos\tsample\traw_score\tcorrected_score\n")
             for row in sorted(result["rows"], key=lambda r: -r["raw_score"]):
-                out.write(f"\t{row['pos']}\t{row['sample']}\t{row['raw_score']}\t{row['corrected_score']}\n")
+                out.write(
+                    f"\t{row['pos']}\t{row['sample']}\t{row['raw_score']}\t{row['corrected_score']}\n"
+                )
 
     if out is not sys.stdout:
         out.close()
